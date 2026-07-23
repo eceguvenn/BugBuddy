@@ -1,0 +1,17 @@
+## .NET
+bin/
+obj/
+nupkg/
+
+## IDE
+.vs/
+.vscode/
+*.user
+*.suo
+
+## OS
+.DS_Store
+Thumbs.db
+
+## BugBuddy config (don't commit user settings)
+.bugbuddy/

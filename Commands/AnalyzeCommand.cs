@@ -44,16 +44,16 @@ public static class AnalyzeCommand
                         // AI ile açıkla
                         var aiService = new AiExplainerService(settings.ApiKey, settings.Model);
                         var dummyError = new BuildError("unknown", 0, 0, code, $"Error {code}", "error");
-                        explanation = await aiService.ExplainAsync(dummyError);
+                        explanation = await aiService.ExplainAsync(dummyError, settings.Language);
                     }
                     else
                     {
                         // Fallback sözlük
                         var dummyError = new BuildError("unknown", 0, 0, code, $"Error {code}", "error");
-                        explanation = BuiltInExplainerService.Explain(dummyError);
+                        explanation = BuiltInExplainerService.Explain(dummyError, settings.Language);
                     }
 
-                    ConsoleRenderer.RenderAnalysis(code, explanation);
+                    ConsoleRenderer.RenderAnalysis(code, explanation, settings.Language);
                 });
 
             if (string.IsNullOrWhiteSpace(settings.ApiKey))

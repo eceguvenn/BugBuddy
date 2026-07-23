@@ -51,10 +51,17 @@ public class AiExplainerService
     /// <summary>
     /// AI ile hata açıklaması üretir. Başarısız olursa fallback sözlüğe döner.
     /// </summary>
-    public async Task<ErrorExplanation> ExplainAsync(BuildError error)
+    public async Task<ErrorExplanation> ExplainAsync(BuildError error, string language = "en")
     {
         try
         {
+            var isTurkish = language.Equals("tr", StringComparison.OrdinalIgnoreCase);
+            var langInstruction = isTurkish 
+                ? "- CRITICAL: Write all friendlyMessage and solution texts completely in TURKISH language in a warm, casual tone."
+                : "- Write explanations in English.";
+
+            var systemPromptWithLang = SystemPrompt + "\n" + langInstruction;
+
             var userMessage = $"""
                 Error Code: {error.ErrorCode}
                 File: {Path.GetFileName(error.FilePath)}
@@ -68,7 +75,7 @@ public class AiExplainerService
                 model = _model,
                 messages = new[]
                 {
-                    new { role = "system", content = SystemPrompt },
+                    new { role = "system", content = systemPromptWithLang },
                     new { role = "user", content = userMessage }
                 },
                 temperature = 0.7,
@@ -82,7 +89,7 @@ public class AiExplainerService
             var content = result?.Choices?.FirstOrDefault()?.Message?.Content;
 
             if (string.IsNullOrWhiteSpace(content))
-                return BuiltInExplainerService.Explain(error);
+                return BuiltInExplainerService.Explain(error, language);
 
             // JSON yanıtı parse et
             var explanation = JsonSerializer.Deserialize<AiExplanationResponse>(content, new JsonSerializerOptions
@@ -91,7 +98,7 @@ public class AiExplainerService
             });
 
             if (explanation is null)
-                return BuiltInExplainerService.Explain(error);
+                return BuiltInExplainerService.Explain(error, language);
 
             return new ErrorExplanation(
                 explanation.FriendlyMessage ?? error.Message,
@@ -102,7 +109,7 @@ public class AiExplainerService
         catch
         {
             // API hatası durumunda fallback sözlüğe dön
-            return BuiltInExplainerService.Explain(error);
+            return BuiltInExplainerService.Explain(error, language);
         }
     }
 

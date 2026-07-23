@@ -172,16 +172,102 @@ public static class BuiltInExplainerService
         ),
     };
 
+    private static readonly Dictionary<string, ErrorExplanation> TurkishExplanations = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["CS0003"] = new(
+            "Derleme sırasında sistem hafızası (RAM) yetersiz kaldı. Bu oldukça nadir bir durum!",
+            "Diğer uygulamaları kapatmayı veya projenizi daha küçük parçalara bölmeyi deneyin.",
+            null
+        ),
+        ["CS1002"] = new(
+            "Selam! Kod satırının sonuna noktalı virgül (;) koymayı unuttun gibi görünüyor.",
+            "Satırın sonuna ';' ekle — çözmesi çok kolay!",
+            "int x = 5;  // Noktalı virgülü unutma → ;"
+        ),
+        ["CS1003"] = new(
+            "Derleyici burada belirli bir sözdizimi elemanı bekliyordu ancak başka bir şey buldu.",
+            "Eksik virgül, parantez veya diğer sözdizimi karakterleri için satırı kontrol edin.",
+            null
+        ),
+        ["CS0246"] = new(
+            "Derleyici kullandığın türü/sınıfı bulamadı. Genellikle eksik bir 'using' ifadesi veya NuGet paketinden kaynaklanır.",
+            "1. Dosyanın üst kısmına ilgili 'using' ifadesini ekleyin.\n2. Veya eksik NuGet paketini yükleyin: dotnet add package <PaketAdı>",
+            "using System.Collections.Generic;  // Örnek: List<T>, Dictionary<T,T> vb. ekler"
+        ),
+        ["CS0103"] = new(
+            "Mevcut kapsam (scope) içinde var olmayan bir değişken veya metot kullanmaya çalışıyorsun.",
+            "İsimde harf hatası olup olmadığını kontrol et veya kullanmadan önce tanımladığından emin ol.",
+            "string name = \"BugBuddy\";\nConsole.WriteLine(name);  // 'name' önce tanımlanmalıdır!"
+        ),
+        ["CS1061"] = new(
+            "Bu tür üzerinde bulunmayan bir metot veya özellik (property) çağırıyorsun.",
+            "Metot/özellik adındaki harf hatalarını kontrol edin.",
+            "// List için .Length yerine .Count yazmayı mı kastettiniz?\nvar list = new List<int>();\nint count = list.Count;  // ✅ .Length değil"
+        ),
+        ["CS0029"] = new(
+            "Bir türdeki değeri, uyumsuz başka bir türdeki değişkene atamaya çalışıyorsun.",
+            "Açık tür dönüştürme (cast) yapın veya değeri uygun türe dönüştürün.",
+            "int number = int.Parse(\"42\");  // string'i int'e dönüştür"
+        ),
+        ["CS0019"] = new(
+            "Bu operatörü (+, -, == vb.) bu türlerle kullanamazsın.",
+            "Operatörün her iki tarafındaki türlerin uyumlu olduğundan emin olun.",
+            null
+        ),
+        ["CS0120"] = new(
+            "Statik olmayan (non-static) bir üyeye sınıfın bir örneği (instance) olmadan erişmeye çalışıyorsun.",
+            "Sınıftan bir nesne (instance) oluşturun veya üyeyi 'static' yapın.",
+            "var service = new MyService();\nservice.DoWork();  // Statik olmayan metotlar için nesne gerekir!"
+        ),
+        ["CS0161"] = new(
+            "Metot bir değer döndüreceğini söylüyor, ancak tüm kod yolları bir değer döndürmüyor.",
+            "Metottaki tüm olasılıkların bir 'return' ifadesiyle bittiğinden emin olun.",
+            "public int GetValue(bool flag)\n{\n    if (flag) return 1;\n    return 0;  // Olası tüm durumları kapsayın!\n}"
+        ),
+        ["CS8600"] = new(
+            "Null olabilecek bir değeri, null kabul etmeyen bir türe dönüştürüyorsun. Null güvenliği uyarısı!",
+            "Null kontrolü ekleyin, ?. operatörünü kullanın veya varsayılan değer atayın.",
+            "string? input = GetInput();\nstring safe = input ?? \"varsayılan\";  // Varsayılan değer verin"
+        ),
+        ["CS8602"] = new(
+            "Null olabilecek bir nesnenin üyesine erişmeye çalışıyorsun. Derleyici seni koruyor!",
+            "Kullanmadan önce null kontrolü yapın.",
+            "if (myObject is not null)\n{\n    myObject.DoSomething();  // Güvenli!\n}"
+        ),
+        ["CS8618"] = new(
+            "Null kabul etmeyen bir özellik başlatılmadı (initialized).",
+            "Yapıcı metotta (constructor) başlatın, 'required' ekleyin veya '?' ile null kabul eder yapın.",
+            "public required string Name { get; set; }  // 'required' atanmasını zorunlu kılar"
+        )
+    };
+
     /// <summary>
     /// Yerleşik sözlükten hata açıklaması döner.
     /// Sözlükte yoksa genel bir açıklama üretir.
     /// </summary>
-    public static ErrorExplanation Explain(BuildError error)
+    public static ErrorExplanation Explain(BuildError error, string language = "en")
     {
-        if (Explanations.TryGetValue(error.ErrorCode, out var explanation))
+        var isTurkish = language.Equals("tr", StringComparison.OrdinalIgnoreCase);
+        var dictionary = isTurkish ? TurkishExplanations : Explanations;
+
+        if (dictionary.TryGetValue(error.ErrorCode, out var explanation))
             return explanation;
 
+        // Varsayılan İngilizce sözlükte arayalım
+        if (isTurkish && Explanations.TryGetValue(error.ErrorCode, out var fallbackEn))
+            return fallbackEn;
+
         // Sözlükte olmayan hatalar için genel açıklama
+        if (isTurkish)
+        {
+            return new ErrorExplanation(
+                $"Derleyici mesajı: \"{error.Message}\"",
+                "Bu hata kodu için resmi dokümantasyonu inceleyebilir veya internette aratabilirsiniz:\n"
+                + $"https://learn.microsoft.com/tr-tr/dotnet/csharp/language-reference/compiler-messages/{error.ErrorCode.ToLowerInvariant()}",
+                null
+            );
+        }
+
         return new ErrorExplanation(
             $"The compiler says: \"{error.Message}\"",
             "Check the official docs for this error code, or try searching for it online:\n"

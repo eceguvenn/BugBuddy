@@ -59,23 +59,33 @@ public static class ConsoleRenderer
     /// <summary>
     /// Tek bir hata ve açıklamasını güzel format ile gösterir.
     /// </summary>
-    public static void RenderError(BuildError error, ErrorExplanation explanation, int index)
+    /// <summary>
+    /// Tek bir hata ve açıklamasını güzel format ile gösterir.
+    /// </summary>
+    public static void RenderError(BuildError error, ErrorExplanation explanation, int index, string language = "en")
     {
+        var isTurkish = language.Equals("tr", StringComparison.OrdinalIgnoreCase);
         var isError = error.Severity.Equals("error", StringComparison.OrdinalIgnoreCase);
         var emoji = isError ? "🔴" : "🟡";
         var color = isError ? "red" : "yellow";
         var fileName = Path.GetFileName(error.FilePath);
 
+        var lineWord = isTurkish ? "Satır" : "Line";
+        var whatHappenedLabel = isTurkish ? "💬 Ne oldu:" : "💬 What happened:";
+        var howToFixLabel = isTurkish ? "🔧 Nasıl düzeltilir:" : "🔧 How to fix:";
+        var exampleLabel = isTurkish ? "💡 Örnek:" : "💡 Example:";
+        var originalLabel = isTurkish ? "Orijinal Hata:" : "Original:";
+
         // Başlık
-        var headerText = $"{emoji} {error.ErrorCode} — {fileName} (Line {error.Line})";
+        var headerText = $"{emoji} {error.ErrorCode} — {fileName} ({lineWord} {error.Line})";
 
         // İçerik oluştur
         var content = new List<string>
         {
-            $"[bold]💬 What happened:[/]",
+            $"[bold]{whatHappenedLabel}[/]",
             $"   [italic]{Markup.Escape(explanation.FriendlyMessage)}[/]",
             "",
-            $"[bold]🔧 How to fix:[/]"
+            $"[bold]{howToFixLabel}[/]"
         };
 
         // Çözüm satırlarını ekle
@@ -88,13 +98,13 @@ public static class ConsoleRenderer
         if (!string.IsNullOrWhiteSpace(explanation.CodeExample))
         {
             content.Add("");
-            content.Add($"[bold]💡 Example:[/]");
+            content.Add($"[bold]{exampleLabel}[/]");
             content.Add($"[dim]{Markup.Escape(explanation.CodeExample)}[/]");
         }
 
         // Orijinal hata mesajını küçük puntoda göster
         content.Add("");
-        content.Add($"[dim]Original: {Markup.Escape(error.Message)}[/]");
+        content.Add($"[dim]{originalLabel} {Markup.Escape(error.Message)}[/]");
 
         var panel = new Panel(string.Join("\n", content))
         {
@@ -118,21 +128,26 @@ public static class ConsoleRenderer
             AnsiConsole.MarkupLine("[dim]  Hope that helps! You've got this! 🚀[/]");
         }
 
-        AnsiConsole.MarkupLine("[dim]  Powered by BugBuddy — github.com/yourusername/BugBuddy[/]");
+        AnsiConsole.MarkupLine("[dim]  Powered by BugBuddy — github.com/eceguvenn/BugBuddy[/]");
         AnsiConsole.WriteLine();
     }
 
     /// <summary>
     /// Tek bir hata kodunun açıklamasını gösterir (analyze komutu için).
     /// </summary>
-    public static void RenderAnalysis(string errorCode, ErrorExplanation explanation)
+    public static void RenderAnalysis(string errorCode, ErrorExplanation explanation, string language = "en")
     {
+        var isTurkish = language.Equals("tr", StringComparison.OrdinalIgnoreCase);
+        var whatIsLabel = isTurkish ? $"💬 {Markup.Escape(errorCode)} nedir?" : $"💬 What is {Markup.Escape(errorCode)}?";
+        var howToFixLabel = isTurkish ? "🔧 Nasıl düzeltilir:" : "🔧 How to fix it:";
+        var exampleLabel = isTurkish ? "💡 Örnek:" : "💡 Example:";
+
         var content = new List<string>
         {
-            $"[bold]💬 What is {Markup.Escape(errorCode)}?[/]",
+            $"[bold]{whatIsLabel}[/]",
             $"   [italic]{Markup.Escape(explanation.FriendlyMessage)}[/]",
             "",
-            $"[bold]🔧 How to fix it:[/]"
+            $"[bold]{howToFixLabel}[/]"
         };
 
         foreach (var line in explanation.Solution.Split('\n'))
@@ -143,7 +158,7 @@ public static class ConsoleRenderer
         if (!string.IsNullOrWhiteSpace(explanation.CodeExample))
         {
             content.Add("");
-            content.Add($"[bold]💡 Example:[/]");
+            content.Add($"[bold]{exampleLabel}[/]");
             content.Add($"[dim]{Markup.Escape(explanation.CodeExample)}[/]");
         }
 

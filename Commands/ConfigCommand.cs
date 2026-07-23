@@ -22,6 +22,11 @@ public static class ConfigCommand
             description: "Set the AI model to use (default: gpt-4o-mini)"
         );
 
+        var langOption = new Option<string?>(
+            aliases: new[] { "--lang", "-l" },
+            description: "Set language (tr for Turkish, en for English)"
+        );
+
         var showOption = new Option<bool>(
             name: "--show",
             description: "Show current configuration"
@@ -31,10 +36,11 @@ public static class ConfigCommand
         {
             apiKeyOption,
             modelOption,
+            langOption,
             showOption
         };
 
-        command.SetHandler((string? apiKey, string? model, bool show) =>
+        command.SetHandler((string? apiKey, string? model, string? lang, bool show) =>
         {
             var settings = AppSettings.Load();
 
@@ -61,6 +67,27 @@ public static class ConfigCommand
                 ConsoleRenderer.RenderMessage($"Model set to: {model}", "success");
             }
 
+            if (!string.IsNullOrWhiteSpace(lang))
+            {
+                var normalizedLang = lang.Trim().ToLowerInvariant();
+                if (normalizedLang is "tr" or "turkish" or "türkçe")
+                {
+                    settings.Language = "tr";
+                    changed = true;
+                    ConsoleRenderer.RenderMessage("Dil Türkçe olarak ayarlandı! 🇹🇷", "success");
+                }
+                else if (normalizedLang is "en" or "english")
+                {
+                    settings.Language = "en";
+                    changed = true;
+                    ConsoleRenderer.RenderMessage("Language set to English! 🇬🇧", "success");
+                }
+                else
+                {
+                    ConsoleRenderer.RenderMessage("Desteklenmeyen dil! (Kullanılabilir: 'tr' veya 'en')", "warning");
+                }
+            }
+
             if (changed)
             {
                 settings.Save();
@@ -71,13 +98,14 @@ public static class ConfigCommand
                 ShowConfig(settings);
                 AnsiConsole.WriteLine();
                 AnsiConsole.MarkupLine("[dim]  Usage:[/]");
+                AnsiConsole.MarkupLine("[dim]    bugbuddy config --lang tr[/]");
                 AnsiConsole.MarkupLine("[dim]    bugbuddy config --api-key YOUR_OPENAI_KEY[/]");
                 AnsiConsole.MarkupLine("[dim]    bugbuddy config --model gpt-4o[/]");
                 AnsiConsole.MarkupLine("[dim]    bugbuddy config --show[/]");
             }
 
             AnsiConsole.WriteLine();
-        }, apiKeyOption, modelOption, showOption);
+        }, apiKeyOption, modelOption, langOption, showOption);
 
         return command;
     }

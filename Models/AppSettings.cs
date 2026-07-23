@@ -8,6 +8,7 @@ namespace BugBuddy.Models;
 /// </summary>
 public class AppSettings
 {
+    public string Provider { get; set; } = "openai"; // "openai" veya "gemini"
     public string? ApiKey { get; set; }
     public string Model { get; set; } = "gpt-4o-mini";
     public string Language { get; set; } = "en";

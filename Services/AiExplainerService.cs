@@ -14,6 +14,7 @@ public class AiExplainerService
     private readonly HttpClient _httpClient;
     private readonly string _apiKey;
     private readonly string _model;
+    private readonly string _provider;
 
     private const string SystemPrompt = """
         You are BugBuddy, a super friendly and supportive coding assistant. 
@@ -36,16 +37,21 @@ public class AiExplainerService
         }
         """;
 
-    public AiExplainerService(string apiKey, string model = "gpt-4o-mini")
+    public AiExplainerService(string apiKey, string model = "gpt-4o-mini", string provider = "openai")
     {
         _apiKey = apiKey;
         _model = model;
+        _provider = provider;
         _httpClient = new HttpClient
         {
-            BaseAddress = new Uri("https://api.openai.com/"),
             Timeout = TimeSpan.FromSeconds(30)
         };
-        _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_apiKey}");
+
+        if (_provider.Equals("openai", StringComparison.OrdinalIgnoreCase))
+        {
+            _httpClient.BaseAddress = new Uri("https://api.openai.com/");
+            _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_apiKey}");
+        }
     }
 
     /// <summary>
@@ -70,23 +76,59 @@ public class AiExplainerService
                 Severity: {error.Severity}
                 """;
 
-            var requestBody = new
+            string? content = null;
+
+            if (_provider.Equals("gemini", StringComparison.OrdinalIgnoreCase))
             {
-                model = _model,
-                messages = new[]
+                var geminiUrl = $"https://generativelanguage.googleapis.com/v1beta/models/{_model}:generateContent?key={_apiKey}";
+                var body = new
                 {
-                    new { role = "system", content = systemPromptWithLang },
-                    new { role = "user", content = userMessage }
-                },
-                temperature = 0.7,
-                max_tokens = 500
-            };
+                    contents = new[]
+                    {
+                        new
+                        {
+                            role = "user",
+                            parts = new[] { new { text = systemPromptWithLang + "\n\n" + userMessage } }
+                        }
+                    }
+                };
 
-            var response = await _httpClient.PostAsJsonAsync("v1/chat/completions", requestBody);
-            response.EnsureSuccessStatusCode();
+                var response = await _httpClient.PostAsJsonAsync(geminiUrl, body);
+                response.EnsureSuccessStatusCode();
 
-            var result = await response.Content.ReadFromJsonAsync<OpenAiResponse>();
-            var content = result?.Choices?.FirstOrDefault()?.Message?.Content;
+                var geminiResult = await response.Content.ReadFromJsonAsync<GeminiResponse>();
+                content = geminiResult?.Candidates?.FirstOrDefault()?.Content?.Parts?.FirstOrDefault()?.Text;
+
+                // Markdown json backticklerini temizle (Gemini bazen ```json ... ``` ile sarar)
+                if (!string.IsNullOrWhiteSpace(content))
+                {
+                    content = content.Trim();
+                    if (content.StartsWith("```json")) content = content[7..];
+                    if (content.StartsWith("```")) content = content[3..];
+                    if (content.EndsWith("```")) content = content[..^3];
+                    content = content.Trim();
+                }
+            }
+            else
+            {
+                var requestBody = new
+                {
+                    model = _model,
+                    messages = new[]
+                    {
+                        new { role = "system", content = systemPromptWithLang },
+                        new { role = "user", content = userMessage }
+                    },
+                    temperature = 0.7,
+                    max_tokens = 500
+                };
+
+                var response = await _httpClient.PostAsJsonAsync("v1/chat/completions", requestBody);
+                response.EnsureSuccessStatusCode();
+
+                var result = await response.Content.ReadFromJsonAsync<OpenAiResponse>();
+                content = result?.Choices?.FirstOrDefault()?.Message?.Content;
+            }
 
             if (string.IsNullOrWhiteSpace(content))
                 return BuiltInExplainerService.Explain(error, language);
@@ -130,5 +172,22 @@ public class AiExplainerService
         [property: JsonPropertyName("friendlyMessage")] string? FriendlyMessage,
         [property: JsonPropertyName("solution")] string? Solution,
         [property: JsonPropertyName("codeExample")] string? CodeExample
+    );
+
+    // Gemini API yanıt modelleri
+    private record GeminiResponse(
+        [property: JsonPropertyName("candidates")] List<GeminiCandidate>? Candidates
+    );
+
+    private record GeminiCandidate(
+        [property: JsonPropertyName("content")] GeminiContent? Content
+    );
+
+    private record GeminiContent(
+        [property: JsonPropertyName("parts")] List<GeminiPart>? Parts
+    );
+
+    private record GeminiPart(
+        [property: JsonPropertyName("text")] string? Text
     );
 }

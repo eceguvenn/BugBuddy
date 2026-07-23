@@ -6,7 +6,8 @@ var rootCommand = new RootCommand("BugBuddy — Your friendly build error explai
 {
     BuildCommand.Create(),
     AnalyzeCommand.Create(),
-    ConfigCommand.Create()
+    ConfigCommand.Create(),
+    ChatCommand.Create()
 };
 
 // Komut satırı argümanlarını çalıştır

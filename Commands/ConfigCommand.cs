@@ -12,14 +12,19 @@ public static class ConfigCommand
 {
     public static Command Create()
     {
+        var providerOption = new Option<string?>(
+            aliases: new[] { "--provider", "-p" },
+            description: "Set AI provider ('openai' or 'gemini')"
+        );
+
         var apiKeyOption = new Option<string?>(
             name: "--api-key",
-            description: "Set your OpenAI API key for AI-powered explanations"
+            description: "Set your AI API key for AI-powered explanations"
         );
 
         var modelOption = new Option<string?>(
             name: "--model",
-            description: "Set the AI model to use (default: gpt-4o-mini)"
+            description: "Set the AI model to use (e.g. gpt-4o-mini or gemini-1.5-flash)"
         );
 
         var langOption = new Option<string?>(
@@ -34,13 +39,14 @@ public static class ConfigCommand
 
         var command = new Command("config", "Configure BugBuddy settings")
         {
+            providerOption,
             apiKeyOption,
             modelOption,
             langOption,
             showOption
         };
 
-        command.SetHandler((string? apiKey, string? model, string? lang, bool show) =>
+        command.SetHandler((string? provider, string? apiKey, string? model, string? lang, bool show) =>
         {
             var settings = AppSettings.Load();
 
@@ -52,6 +58,35 @@ public static class ConfigCommand
             }
 
             var changed = false;
+
+            if (!string.IsNullOrWhiteSpace(provider))
+            {
+                var normProv = provider.Trim().ToLowerInvariant();
+                if (normProv is "gemini" or "google")
+                {
+                    settings.Provider = "gemini";
+                    if (string.IsNullOrWhiteSpace(model) || settings.Model.StartsWith("gpt-") || settings.Model == "gemini-1.5-flash")
+                    {
+                        settings.Model = "gemini-flash-latest";
+                    }
+                    changed = true;
+                    ConsoleRenderer.RenderMessage("AI Sağlayıcı: Google Gemini 🌐", "success");
+                }
+                else if (normProv is "openai")
+                {
+                    settings.Provider = "openai";
+                    if (string.IsNullOrWhiteSpace(model) || settings.Model.StartsWith("gemini-"))
+                    {
+                        settings.Model = "gpt-4o-mini";
+                    }
+                    changed = true;
+                    ConsoleRenderer.RenderMessage("AI Sağlayıcı: OpenAI 🤖", "success");
+                }
+                else
+                {
+                    ConsoleRenderer.RenderMessage("Desteklenmeyen sağlayıcı! (Kullanılabilir: 'gemini' veya 'openai')", "warning");
+                }
+            }
 
             if (!string.IsNullOrWhiteSpace(apiKey))
             {
@@ -98,14 +133,14 @@ public static class ConfigCommand
                 ShowConfig(settings);
                 AnsiConsole.WriteLine();
                 AnsiConsole.MarkupLine("[dim]  Usage:[/]");
+                AnsiConsole.MarkupLine("[dim]    bugbuddy config --provider gemini --api-key YOUR_GEMINI_KEY[/]");
+                AnsiConsole.MarkupLine("[dim]    bugbuddy config --provider openai --api-key YOUR_OPENAI_KEY[/]");
                 AnsiConsole.MarkupLine("[dim]    bugbuddy config --lang tr[/]");
-                AnsiConsole.MarkupLine("[dim]    bugbuddy config --api-key YOUR_OPENAI_KEY[/]");
-                AnsiConsole.MarkupLine("[dim]    bugbuddy config --model gpt-4o[/]");
                 AnsiConsole.MarkupLine("[dim]    bugbuddy config --show[/]");
             }
 
             AnsiConsole.WriteLine();
-        }, apiKeyOption, modelOption, langOption, showOption);
+        }, providerOption, apiKeyOption, modelOption, langOption, showOption);
 
         return command;
     }
@@ -122,6 +157,7 @@ public static class ConfigCommand
             ? "[dim]not set[/]"
             : $"[green]****{settings.ApiKey[^4..]}[/]";
 
+        table.AddRow("Provider", $"[yellow]{settings.Provider.ToUpperInvariant()}[/]");
         table.AddRow("API Key", maskedKey);
         table.AddRow("Model", $"[cyan]{settings.Model}[/]");
         table.AddRow("Language", $"[cyan]{settings.Language}[/]");

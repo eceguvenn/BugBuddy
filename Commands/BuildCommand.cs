@@ -86,7 +86,7 @@ public static class BuildCommand
 
                         if (!string.IsNullOrWhiteSpace(settings.ApiKey))
                         {
-                            var aiService = new AiExplainerService(settings.ApiKey, settings.Model);
+                            var aiService = new AiExplainerService(settings.ApiKey, settings.Model, settings.Provider);
                             explanation = await aiService.ExplainAsync(error, settings.Language);
                         }
                         else

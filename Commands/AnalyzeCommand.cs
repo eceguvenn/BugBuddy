@@ -42,7 +42,7 @@ public static class AnalyzeCommand
                     if (!string.IsNullOrWhiteSpace(settings.ApiKey))
                     {
                         // AI ile açıkla
-                        var aiService = new AiExplainerService(settings.ApiKey, settings.Model);
+                        var aiService = new AiExplainerService(settings.ApiKey, settings.Model, settings.Provider);
                         var dummyError = new BuildError("unknown", 0, 0, code, $"Error {code}", "error");
                         explanation = await aiService.ExplainAsync(dummyError, settings.Language);
                     }
